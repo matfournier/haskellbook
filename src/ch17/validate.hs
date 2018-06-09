@@ -202,7 +202,7 @@ cowFromString'' name' age' weight' =
 -- cow2 = cow1 <*> noNegative 1
 
 
--- kind of like fmap but we may not have a function at all.
+-- kind of like fmap but we may not have a function at apure .
 
 
 -- f ~ Maybe
@@ -218,3 +218,13 @@ cowFromString'' name' age' weight' =
 -- (,,,,) <$> Just 90 <*> Just 10 <*> Just "Tierness" <*> pure [1,2,3]
 
 -- made it to pg 721 applicative laws
+
+-- homomorophism - structure preservering map between two algebraic datastructures
+--  effect of applying a function that is embedded in some structure to a value that is embedded
+--  in some structure should be the same as applying a function to a value without affecting
+--  the outside structure
+--  this has to do with the monoidal part... 
+
+-- pure f <*> pure x = pure (f x)
+-- pure (+1) <*> pure 1 p
+-- pure ((+1) 1)
