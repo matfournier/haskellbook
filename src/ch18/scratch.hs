@@ -154,7 +154,7 @@ h = putStrLn <$> getLine
 --     :t twoActions ( IO(), IO())
 --   fst twoActions will print 1, snd twoActions will print 2
 
--- so what we need to do is join those two ios together
+-- so what we need to do is join those two ios togetheri
 
 -- join $ putStrLn <$> getLine works
 -- :t of this is IO () 
@@ -175,3 +175,208 @@ bindingAndSequencing' =
   \name -> putStrLn ("hello there: " ++ name)
 
 -- 759
+----- EXAMPLES OF MONAD USE
+-- (>>=) :: monad m
+--       => m   a -> (a ->  m  b) ->  m  b
+--         [ ]  a -> (a -> [ ] b) -> [ ] b
+--         [ ]  a -> (a -> [b]  ) -> [b]
+
+-- return :: monad m => a -> m  a
+--                      a -> [a]
+
+-- it's like fmap but the order of operations is mixed
+
+
+-- examples of List Monad in use
+
+twiceWhenEven :: [Integer] -> [Integer]
+twiceWhenEven xs = do
+  x <- xs -- bind individual values out of the list input like a list comprehension 
+  if even x -- this is our a -> m b 
+    then [x*x, x*x]
+    else [x*x]
+
+twiceWhenEven' :: [Integer] -> [Integer]
+twiceWhenEven' xs =
+  xs >>= \x -> if even x then [x*x, x*x] else [x*x]
+  
+-- Maybe Monad
+
+--- (>>=) :: Maybe a -> (a -> Maybe b) -> Maybe b
+--  return ::  a -> Maybe a
+
+-- using maybe monad
+
+data Cow = Cow {
+  name :: String,
+  age :: Int,
+  weight :: Int
+  } deriving (Eq, Show)
+
+noEmpty :: String -> Maybe String
+noEmpty "" = Nothing
+noEmpty str = Just str
+
+noNegative :: Int -> Maybe Int
+noNegative n | n >= 0 = Just n
+             | otherwise = Nothing
+
+-- if the cows name is Bess, must be under 500 lbs
+
+weightCheck :: Cow -> Maybe Cow
+weightCheck cow =
+  let w = weight cow
+      n = name cow
+  in if n == "Bess" && w > 499
+     then Nothing
+     else Just cow
+
+
+-- NOTE HOW SUCCESSIVE VALUES DEPEND ON PREVIOUS VALUES
+
+mkSphericalCow :: String -> Int -> Int -> Maybe Cow
+mkSphericalCow name' age' weight' =
+  case noEmpty name' of
+    Nothing -> Nothing
+    Just nammy ->
+      case noNegative age' of
+        Nothing -> Nothing
+        Just agey ->
+          case noNegative weight' of
+            Nothing -> Nothing
+            Just weighty ->
+              weightCheck (Cow nammy agey weighty)
+
+-- fix up w/ Do notation
+
+mkSphericalCow' :: String -> Int -> Int -> Maybe Cow
+mkSphericalCow' name' age' weight' = do
+  nammy <- noEmpty name'
+  agey <- noNegative age'
+  weighty <- noNegative weight'
+  weightCheck (Cow nammy agey weighty)
+
+-- can we rewrte this with >>=?
+
+mkSphericalCow'' :: String -> Int -> Int -> Maybe Cow
+mkSphericalCow'' name' age' weight' =
+  noEmpty name' >>=
+  \nammy ->
+    noNegative age' >>=
+    \agey ->
+      noNegative weight' >>=
+      \weighty ->
+        weightCheck (Cow nammy agey weighty)
+
+-- so why can't we do this with applicative?
+-- because weightCheck function depends on prior existence of a Cow values and returns
+--  more monadic structure in it's return type Maybe Cow
+
+-- if syntax looks like
+
+-- doSomething = do
+--   a <- f
+--   b <- g
+--   c <- h
+--   pure (a, b, c)
+
+-- you can rewrite using Applicative
+
+-- but if you have
+-- doSomething' n = do
+--     a <- f n
+--     b <- g a
+--     c <- h b
+--     pure (a, b, c)
+--  you need Monad because g and h are producing monad structure based on values that can only
+--    be generated from monadic structure.  You need Join to crunch the nesting monadic structure
+--    back down
+
+f :: Integer -> Maybe Integer
+f 0 = Nothing
+f n = Just n
+
+g :: Integer -> Maybe Integer
+g i =
+  if even i
+  then Just (i + 1)
+  else Nothing
+
+h' :: Integer -> Maybe String
+h' i = Just ("10191" ++ show i)
+
+doSomething' n = do
+  a <- f n
+  b <- g a
+  c <- h' b
+  pure (a, b, c)
+
+-- 1.  With the maybe applicative, each Maybe succeeds of fails independently of each otherwise
+--     you are lifting functions that are also just or nothing over maybe values
+
+-- 2.  With maybe Monad, computations contributing to the final result can choose to return Nothing based
+--     on the _PREVIOUS_ compution
+
+
+-- EITHER MONAD
+
+-- (>>=) :: Monad m
+--       =>       m a  -> (a ->        m b) ->         m b
+--       :: Either e a -> (a -> Either e b) -> Either  e b
+--
+-- return :: Monad m => a -> m aq
+-- return ::            a -> Either e a
+
+-- go see EitherMonad.hs for example
+
+-- there is NO MONAD FOR Validation.
+-- Applictive and Monad instances must have the same behviour
+
+-- import Control.Monad (ap)
+-- (<*>) == ap
+-- e.g. applicatives apply for a type must not change behavior from the Monad instances bind
+
+-- (<*>) :: Applicative f => f (a -> b) -> f a -> f b
+-- ap :: Monad m => m (a -> b) -> m a -> m b
+-- then deriving (<*>) from stronger instance
+-- ap :: (Monad m) => m (a -> b) -> m a -> m b
+-- ap m m' = d0
+  -- x <- m
+  -- x' <- m'
+  -- return (x x')
+
+-- problem here is you can't make MONAD for Validation that accumaltes errors like validation does
+-- any Monad instance for Validation ends up looking like Either's Monad
+
+-- short exercise implement either monad
+
+-- monad has laws:
+
+-- TWO identity laws
+
+-- right identiy
+-- m >>= return = m
+-- return x >>= f = f x
+--  e..g return should be NEUTRAL and NOT PERFORM ANY COMPUTATION
+
+
+-- (>>=) :: Monad m => m a -> (a -> m b) -> m b
+--                    1          2           3
+
+-- return :: a -> m a
+-- m >>= return = m
+-- 1      2       3
+
+-- return x >>= f  = f x
+--      1       2      3  
+
+-- associatitiveity law
+
+-- (m >>= f) >>= g = m >>= (\x -> f x >>= g)
+
+
+-- COMPOSITION AND KLEISLI 
+-- 18.6 783
+ 
+
+ 
