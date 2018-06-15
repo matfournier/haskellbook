@@ -23,7 +23,7 @@ fmapViaMonad f xs = xs >>= return . f
 -- (>>) m a -> m b -> m b
 --   sequences two actions while discarding any resulting value of the first action    
 -- (>>=) :: m a -> (a -> m b) - > m b
--- BIND / FlatMap what have you
+-- BIND 
 --  similar to fmap and <*>
 -- e.g.
 
@@ -379,4 +379,7 @@ doSomething' n = do
 -- 18.6 783
  
 
- 
+-- can't do function composition with (.) with monads because we end up with a type that doesn't work
+-- we want something like Monad m => (b -> m c) -> (a -> m b) -> a -> m c
+
+
